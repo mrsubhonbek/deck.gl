@@ -140,11 +140,11 @@ function App() {
               to: {
                 coordinates: [
                   e.coordinate[0] - drawLine.from[0] > 0
-                    ? e.coordinate[0] - 1e-6
-                    : e.coordinate[0] + 1e-6,
+                    ? e.coordinate[0] - 3e-5
+                    : e.coordinate[0] + 3e-5,
                   e.coordinate[1] - drawLine.from[1] > 0
-                    ? e.coordinate[1] - 1e-6
-                    : e.coordinate[1] + 1e-6,
+                    ? e.coordinate[1] - 3e-5
+                    : e.coordinate[1] + 3e-5,
                 ] as [number, number],
                 name: 'drawLine',
               },
