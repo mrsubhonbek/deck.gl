@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 import { Map } from 'react-map-gl';
 import DeckGL from '@deck.gl/react';
@@ -6,10 +7,9 @@ import { MjolnirEvent } from 'mjolnir.js';
 import { PickingInfo } from 'deck.gl';
 
 import { IconLayer, LineLayer } from '@deck.gl/layers';
-import MapContextMenu from './map-context-menu';
-import MarkerContextMenu from './marker-context-menu';
 
 import 'mapbox-gl/dist/mapbox-gl.css';
+import ControlGraph from './control-graph';
 
 export type PointStation = {
   id: string;
@@ -29,26 +29,92 @@ export type LinerSegment = {
   };
 };
 
+export enum ToolsEnum {
+  None,
+  CreateMarker,
+  DeleteMarker,
+  DrawLine,
+  DeleteLine,
+}
+
 function App() {
   const [datasetPoint, setDatasetPoint] = useState<PointStation[]>([]);
   const [datasetLine, setDatasetLine] = useState<LinerSegment[]>([]);
-  const [showMapContextMenu, setMapShowContextMenu] = useState(false);
-  const [showMarkerContextMenu, setMarkerShowContextMenu] = useState(false);
-  const [info, setInfo] = useState<PickingInfo>();
   const [drawLine, setDrawLine] = useState<{ from: number[] } | undefined>();
   const [startDrawing, setStartDrawing] = useState<LinerSegment | undefined>();
+  const [tools, setTools] = useState<ToolsEnum>(ToolsEnum.None);
 
-  const onClick = useCallback((info: PickingInfo, event: MjolnirEvent) => {
-    console.log('MouseEnter', info, event);
-    if (info.layer?.id !== 'IconLayer') {
-      setMapShowContextMenu(true);
-      setMarkerShowContextMenu(false);
-    } else {
-      setMapShowContextMenu(false);
-      setMarkerShowContextMenu(true);
-    }
-    setInfo(info);
-  }, []);
+  const onClick = useCallback(
+    (info: PickingInfo, _event: MjolnirEvent) => {
+      switch (Number(tools)) {
+        case ToolsEnum.CreateMarker: {
+          if (info.layer?.id !== 'IconLayer') {
+            setDatasetPoint((prev) => [
+              ...prev,
+              {
+                id: info.coordinate?.join('_') ?? '',
+                name: 'test',
+                coordinates: (info?.coordinate as [number, number]) ?? [],
+              },
+            ]);
+          }
+          break;
+        }
+        case ToolsEnum.DeleteMarker: {
+          if (info.layer?.id === 'IconLayer') {
+            setDatasetPoint((prev) =>
+              prev.filter((item) => item.id !== info.object.id)
+            );
+            setDatasetLine((prev) =>
+              prev.filter(
+                (item) => !item.id.split(':').includes(info.object.id)
+              )
+            );
+          }
+          break;
+        }
+        case ToolsEnum.DrawLine: {
+          if (info.layer?.id === 'IconLayer') {
+            if (!drawLine && info?.object) {
+              setDrawLine({
+                from: info?.object?.coordinates,
+              });
+            } else if (info?.object?.coordinates) {
+              setDatasetLine((prev) => [
+                ...prev,
+                {
+                  id: `${drawLine?.from.join('_') ?? ''}:${
+                    info.object.coordinates.join('_') ?? ''
+                  }`,
+                  from: {
+                    name: 'test',
+                    coordinates: (drawLine?.from as [number, number]) ?? [],
+                  },
+                  to: {
+                    name: 'test',
+                    coordinates:
+                      (info.object.coordinates as [number, number]) ?? [],
+                  },
+                },
+              ]);
+              setDrawLine(undefined);
+              setStartDrawing(undefined);
+            }
+          }
+          break;
+        }
+        case ToolsEnum.DeleteLine: {
+          if (info.layer?.id === 'LineLayer') {
+            setDatasetLine((prev) =>
+              prev.filter((item) => item.id !== info.object.id)
+            );
+          }
+          break;
+        }
+      }
+    },
+    [drawLine, tools]
+  );
 
   const layerLine = new LineLayer<LinerSegment>({
     id: 'LineLayer',
@@ -63,7 +129,7 @@ function App() {
   const layerDrawingLine = new LineLayer<LinerSegment>({
     id: 'LineLayer',
     data: [startDrawing],
-    getColor: () => [140, 140, 0],
+    getColor: () => [0, 140, 140],
     getSourcePosition: (d: LinerSegment) => d?.from.coordinates ?? [],
     getTargetPosition: (d: LinerSegment) => d?.to.coordinates ?? [],
     getWidth: 4,
@@ -74,11 +140,6 @@ function App() {
     data: datasetPoint,
     getColor: () => [0, 0, 0],
     getIcon: () => 'marker',
-    onClick: (e) => {
-      console.log('marker', e);
-      setMapShowContextMenu(false);
-      setMarkerShowContextMenu(true);
-    },
     getPosition: (d: PointStation) => d.coordinates,
     getSize: 40,
     iconAtlas:
@@ -89,34 +150,8 @@ function App() {
   });
 
   return (
-    <div
-      onWheel={() => {
-        setMarkerShowContextMenu(false);
-        setMapShowContextMenu(false);
-      }}>
-      {showMapContextMenu && info && (
-        <MapContextMenu
-          info={info}
-          drawLine={drawLine}
-          setDatasetPoint={setDatasetPoint}
-          setShowContextMenu={setMapShowContextMenu}
-          setStartDrawing={setStartDrawing}
-          setDrawLine={setDrawLine}
-          setDatasetLine={setDatasetLine}
-          setMarkerShowContextMenu={setMarkerShowContextMenu}
-        />
-      )}
-      {showMarkerContextMenu && info && (
-        <MarkerContextMenu
-          info={info}
-          drawLine={drawLine}
-          setDatasetPoint={setDatasetPoint}
-          setMarkerShowContextMenu={setMarkerShowContextMenu}
-          setDatasetLine={setDatasetLine}
-          setDrawLine={setDrawLine}
-          setStartDrawing={setStartDrawing}
-        />
-      )}
+    <div>
+      <ControlGraph setTools={setTools} />
       <DeckGL
         initialViewState={{
           longitude: -122.4,
@@ -143,10 +178,6 @@ function App() {
           }
         }}
         onClick={onClick}
-        onDragStart={() => {
-          setMarkerShowContextMenu(false);
-          setMapShowContextMenu(false);
-        }}
         layers={[layerPoint, layerLine, layerDrawingLine]}>
         <Map
           mapStyle="mapbox://styles/mapbox/light-v9"
