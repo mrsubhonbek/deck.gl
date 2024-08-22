@@ -57,7 +57,7 @@ function App() {
     getSourcePosition: (d: LinerSegment) => d?.from.coordinates ?? [],
     getTargetPosition: (d: LinerSegment) => d?.to.coordinates ?? [],
     getWidth: 4,
-    pickable: true,
+    pickable: !drawLine,
   });
 
   const layerDrawingLine = new LineLayer<LinerSegment>({
@@ -67,13 +67,12 @@ function App() {
     getSourcePosition: (d: LinerSegment) => d?.from.coordinates ?? [],
     getTargetPosition: (d: LinerSegment) => d?.to.coordinates ?? [],
     getWidth: 4,
-    pickable: true,
   });
 
   const layerPoint = new IconLayer<PointStation>({
     id: 'IconLayer',
     data: datasetPoint,
-    getColor: () => [140, 140, 0],
+    getColor: () => [0, 0, 0],
     getIcon: () => 'marker',
     onClick: (e) => {
       console.log('marker', e);
@@ -127,10 +126,6 @@ function App() {
         controller
         onHover={(e) => {
           if (drawLine && e.coordinate) {
-            console.log(
-              e.coordinate[0] - drawLine.from[0],
-              e.coordinate[1] - drawLine.from[1]
-            );
             setStartDrawing({
               from: {
                 coordinates: drawLine?.from as [number, number],
@@ -138,14 +133,10 @@ function App() {
               },
               id: 'drawLine',
               to: {
-                coordinates: [
-                  e.coordinate[0] - drawLine.from[0] > 0
-                    ? e.coordinate[0] - 2e-6
-                    : e.coordinate[0] + 2e-6,
-                  e.coordinate[1] - drawLine.from[1] > 0
-                    ? e.coordinate[1] - 2e-6
-                    : e.coordinate[1] + 2e-6,
-                ] as [number, number],
+                coordinates: [e.coordinate[0], e.coordinate[1]] as [
+                  number,
+                  number
+                ],
                 name: 'drawLine',
               },
             });
